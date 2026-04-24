@@ -1241,8 +1241,22 @@ msgstr ""
 msgid "Product"
 msgstr ""
 
-#, python-brace-format
-msgid "Invalid configuration: {error}"
+msgid "Invalid bootloader configuration:\n"
+msgstr ""
+
+msgid "Ready to install"
+msgstr ""
+
+msgid "Disks"
+msgstr ""
+
+msgid "Packages"
+msgstr ""
+
+msgid "Network"
+msgstr ""
+
+msgid "Locale"
 msgstr ""
 
 msgid "Type"

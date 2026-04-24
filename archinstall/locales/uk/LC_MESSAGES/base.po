@@ -1215,9 +1215,23 @@ msgstr "Виробник"
 msgid "Product"
 msgstr "Модель"
 
-#, python-brace-format
-msgid "Invalid configuration: {error}"
-msgstr "Неправильна конфігурація: {error}"
+msgid "Invalid bootloader configuration:\n"
+msgstr "Неправильна конфігурація завантажувача:\n"
+
+msgid "Ready to install"
+msgstr "Готово до встановлення"
+
+msgid "Disks"
+msgstr "Диски"
+
+msgid "Packages"
+msgstr "Пакети"
+
+msgid "Network"
+msgstr "Мережа"
+
+msgid "Locale"
+msgstr "Локаль"
 
 msgid "Type"
 msgstr "Тип"

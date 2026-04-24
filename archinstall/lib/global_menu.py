@@ -243,7 +243,7 @@ class GlobalMenu(AbstractMenu[None]):
 		"""
 		if len(self._missing_configs()) != 0:
 			return False
-		return self._validate_bootloader() is None
+		return len(self._validate_bootloader()) == 0
 
 	async def _select_archinstall_language(self, preset: Language) -> Language:
 		from archinstall.lib.general.general_menu import select_archinstall_language
@@ -443,60 +443,63 @@ class GlobalMenu(AbstractMenu[None]):
 			return bootloader_config.preview(self._uefi)
 		return None
 
-	def _validate_bootloader(self) -> str | None:
+	def _validate_bootloader(self) -> list[str]:
 		"""
 		Checks the selected bootloader is valid for the selected filesystem
 		type of the boot partition.
 
-		Returns [`None`] if the bootloader is valid, otherwise returns a
-		string with the error message.
+		Returns a list of error messages describing every detected issue.
+		The list is empty if the bootloader configuration is valid.
 		"""
-		bootloader_config: BootloaderConfiguration | None = None
+		errors: list[str] = []
+
+		bootloader_config: BootloaderConfiguration | None = self._item_group.find_by_key('bootloader_config').value
+
+		if not bootloader_config or bootloader_config.bootloader == Bootloader.NO_BOOTLOADER:
+			return errors
+
+		bootloader = bootloader_config.bootloader
+
+		disk_config: DiskLayoutConfiguration | None = self._item_group.find_by_key('disk_config').value
+
+		if not disk_config:
+			errors.append('No disk layout selected')
+			return errors
+
 		root_partition: PartitionModification | None = None
 		boot_partition: PartitionModification | None = None
 		efi_partition: PartitionModification | None = None
 
-		bootloader_config = self._item_group.find_by_key('bootloader_config').value
-
-		if not bootloader_config or bootloader_config.bootloader == Bootloader.NO_BOOTLOADER:
-			return None
-
-		bootloader = bootloader_config.bootloader
-
-		if disk_config := self._item_group.find_by_key('disk_config').value:
+		for layout in disk_config.device_modifications:
+			if root_partition := layout.get_root_partition():
+				break
+		for layout in disk_config.device_modifications:
+			if boot_partition := layout.get_boot_partition():
+				break
+		if self._uefi:
 			for layout in disk_config.device_modifications:
-				if root_partition := layout.get_root_partition():
+				if efi_partition := layout.get_efi_partition():
 					break
-			for layout in disk_config.device_modifications:
-				if boot_partition := layout.get_boot_partition():
-					break
-			if self._uefi:
-				for layout in disk_config.device_modifications:
-					if efi_partition := layout.get_efi_partition():
-						break
-		else:
-			return 'No disk layout selected'
 
 		if root_partition is None:
-			return 'Root partition not found'
+			errors.append('Root partition not found')
 
 		if boot_partition is None:
-			return 'Boot partition not found'
+			errors.append('Boot partition not found')
 
 		if self._uefi:
 			if efi_partition is None:
-				return 'EFI system partition (ESP) not found'
-
-			if efi_partition.fs_type is None or not efi_partition.fs_type.is_fat():
-				return 'ESP must be formatted as a FAT filesystem'
+				errors.append('EFI system partition (ESP) not found')
+			elif efi_partition.fs_type is None or not efi_partition.fs_type.is_fat():
+				errors.append('ESP must be formatted as a FAT filesystem')
 
 		if bootloader == Bootloader.Refind and not self._uefi:
-			return 'rEFInd can only be used on UEFI systems'
+			errors.append('rEFInd can only be used on UEFI systems')
 
 		if failure := validate_bootloader_layout(bootloader_config, disk_config):
-			return failure.description
+			errors.append(failure.description)
 
-		return None
+		return errors
 
 	def _prev_install_invalid_config(self, item: MenuItem) -> str | None:
 		if missing := self._missing_configs():
@@ -505,8 +508,11 @@ class GlobalMenu(AbstractMenu[None]):
 				text += f'- {m}\n'
 			return text[:-1]  # remove last new line
 
-		if error := self._validate_bootloader():
-			return tr(f'Invalid configuration: {error}')
+		if errors := self._validate_bootloader():
+			text = tr('Invalid bootloader configuration:\n')
+			for e in errors:
+				text += f'- {e}\n'
+			return text[:-1]
 
 		return None
 
